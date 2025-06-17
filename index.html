@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Flappy Bird Sederhana</title>
+  <style>
+    body, html {
+      margin: 0; padding: 0;
+      background: #70c5ce;
+      font-family: 'Segoe UI', sans-serif;
+      user-select: none;
+    }
+    canvas {
+      display: block;
+      margin: auto;
+      background: #70c5ce;
+      border: 2px solid #333;
+      border-radius: 10px;
+    }
+    #loginScreen, #menuScreen, #info, #gameCanvas, #rankScreen, #gameOverMenu {
+      display: none;
+    }
+    .centered {
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(0,0,0,0.8);
+      padding: 20px 30px;
+      border-radius: 10px;
+      color: white;
+      text-align: center;
+    }
+    .btn {
+      display: block;
+      width: 100%;
+      margin: 10px 0;
+      padding: 10px;
+      border: none;
+      border-radius: 8px;
+      font-size: 18px;
+      background: #4CAF50;
+      color: white;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+    .btn:hover {
+      background: #45a049;
+    }
+    input[type="text"] {
+      width: 100%;
+      padding: 10px;
+      border-radius: 8px;
+      border: none;
+      font-size: 18px;
+      margin-bottom: 10px;
+    }
+    #copyright {
+      text-align: center;
+      color: #333;
+      font-size: 14px;
+      margin-top: 10px;
+    }
+  </style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="loginScreen" class="centered">
+  <h2>Masuk Game</h2>
+  <input type="text" id="username" placeholder="Nama kamu..." />
+  <button class="btn" onclick="login()">Masuk</button>
+</div>
+
+<!-- MENU -->
+<div id="menuScreen" class="centered">
+  <h2>Halo, <span id="displayName"></span>!</h2>
+  <button class="btn" onclick="startGameFromMenu()">Main</button>
+  <button class="btn" onclick="showRank()">Lihat Rank</button>
+  <button class="btn" onclick="backToLogin()">Kembali</button>
+</div>
+
+<!-- RANK -->
+<div id="rankScreen" class="centered">
+  <h2>RANK</h2>
+  <p>Skor Tertinggi: <span id="highScoreRank">0</span></p>
+  <p>Skor Terakhir: <span id="lastScoreRank">0</span></p>
+  <button class="btn" onclick="backToMenu()">Kembali</button>
+</div>
+
+<!-- GAME -->
+<div id="gameCanvas">
+  <canvas id="game" width="400" height="600"></canvas>
+  <div id="info" class="centered">Tap untuk mulai</div>
+</div>
+
+<!-- GAME OVER MENU -->
+<div id="gameOverMenu" class="centered">
+  <h2>Game Over</h2>
+  <p>Mau kembali ke menu awal?</p>
+  <button class="btn" onclick="goToLogin()">Ya</button>
+  <button class="btn" onclick="restartGame()">Tidak</button>
+</div>
+
+<div id="copyright">© FATHAN2025</div>
+
+<script>
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+const info = document.getElementById("info");
+const loginScreen = document.getElementById("loginScreen");
+const menuScreen = document.getElementById("menuScreen");
+const rankScreen = document.getElementById("rankScreen");
+const gameCanvas = document.getElementById("gameCanvas");
+const gameOverMenu = document.getElementById("gameOverMenu");
+
+let bird, pipes, score, highScore, gameOver, gameStarted;
+let username = "";
+
+// LOGIN & MENU
+function login() {
+  const input = document.getElementById("username").value.trim();
+  if (!input) return alert("Masukkan nama dulu dong!");
+  username = input;
+  document.getElementById("displayName").innerText = username;
+  loginScreen.style.display = "none";
+  menuScreen.style.display = "block";
+}
+
+function backToLogin() {
+  if (confirm("Yakin mau kembali ke halaman awal?")) {
+    menuScreen.style.display = "none";
+    loginScreen.style.display = "block";
+  }
+}
+
+function startGameFromMenu() {
+  menuScreen.style.display = "none";
+  gameCanvas.style.display = "block";
+  resetGame();
+}
+
+function showRank() {
+  rankScreen.style.display = "block";
+  menuScreen.style.display = "none";
+  document.getElementById("highScoreRank").innerText = localStorage.getItem("flappyHighScore") || 0;
+  document.getElementById("lastScoreRank").innerText = localStorage.getItem("flappyLastScore") || 0;
+}
+
+function backToMenu() {
+  rankScreen.style.display = "none";
+  menuScreen.style.display = "block";
+}
+
+// GAME LOGIC
+canvas.addEventListener("click", handleGameInput);
+canvas.addEventListener("touchstart", handleGameInput);
+
+function handleGameInput() {
+  if (!gameStarted) {
+    gameStarted = true;
+    info.style.display = "none";
+    loop();
+  } else if (gameOver) {
+    resetGame();
+  } else {
+    bird.velocity = bird.jump;
+  }
+}
+
+function resetGame() {
+  bird = { x: 80, y: 150, width: 30, height: 30, velocity: 0, gravity: 0.3, jump: -4 };
+  pipes = [];
+  score = 0;
+  gameOver = false;
+  gameStarted = false;
+  info.style.display = "block";
+  info.innerText = "Tap untuk mulai";
+  highScore = localStorage.getItem("flappyHighScore") || 0;
+  gameOverMenu.style.display = "none";
+}
+
+function makePipe() {
+  const gap = 180;
+  const top = Math.floor(Math.random() * 250) + 50;
+  pipes.push({ x: canvas.width, y: top, width: 50, gap: gap });
+}
+
+function update() {
+  if (!gameStarted || gameOver) return;
+
+  bird.velocity += bird.gravity;
+  bird.y += bird.velocity;
+  pipes.forEach(pipe => pipe.x -= 2);
+
+  pipes.forEach(pipe => {
+    if (
+      bird.x < pipe.x + pipe.width &&
+      bird.x + bird.width > pipe.x &&
+      (bird.y < pipe.y || bird.y + bird.height > pipe.y + pipe.gap)
+    ) {
+      endGame();
+    }
+  });
+
+  if (bird.y + bird.height > canvas.height || bird.y < 0) endGame();
+
+  pipes = pipes.filter(pipe => {
+    if (pipe.x + pipe.width < 0) {
+      score++;
+      return false;
+    }
+    return true;
+  });
+
+  if (pipes.length === 0 || pipes[pipes.length - 1].x < canvas.width - 200) {
+    makePipe();
+  }
+}
+
+function endGame() {
+  gameOver = true;
+  info.style.display = "none";
+
+  if (score > highScore) {
+    highScore = score;
+    localStorage.setItem("flappyHighScore", highScore);
+  }
+  localStorage.setItem("flappyLastScore", score);
+
+  gameOverMenu.style.display = "block";
+}
+
+function goToLogin() {
+  gameOverMenu.style.display = "none";
+  gameCanvas.style.display = "none";
+  loginScreen.style.display = "block";
+}
+
+function restartGame() {
+  resetGame();
+}
+
+function draw() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = "#70c5ce";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  ctx.fillStyle = "#4CAF50";
+  pipes.forEach(pipe => {
+    ctx.fillRect(pipe.x, 0, pipe.width, pipe.y);
+    ctx.fillRect(pipe.x, pipe.y + pipe.gap, pipe.width, canvas.height - pipe.y - pipe.gap);
+  });
+
+  ctx.fillStyle = "#FFC107";
+  ctx.fillRect(bird.x, bird.y, bird.width, bird.height);
+
+  ctx.fillStyle = "black";
+  ctx.font = "20px sans-serif";
+  ctx.fillText("Skor: " + score, 10, 30);
+  ctx.fillText("Skor Tertinggi: " + highScore, 10, 60);
+}
+
+function loop() {
+  update();
+  draw();
+  if (!gameOver) requestAnimationFrame(loop);
+}
+
+// Tampilkan login saat awal
+loginScreen.style.display = "block";
+</script>
+
+</body>
+</html>
